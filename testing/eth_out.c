@@ -32,7 +32,7 @@ int main(int argc, char* argv[]){
         printf("\e[0;34mTest start\n");
         net_init();
         int i = 1;
-        printf("\e[0;34mFeeding input %02d",i);
+        printf("\e[0;34mFeeding input %02d\n",i);
         while((ret = driver_recv(&buf)) > 0){
                 printf("\b\b%02d",i);
                 fprintf(control_flow,"\nRound %02d -----------------------------\n",i++);
