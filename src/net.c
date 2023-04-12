@@ -29,7 +29,7 @@ uint8_t net_if_ip[NET_IP_LEN] = NET_IF_IP;
  * @brief 网卡接收和发送缓冲区
  * 
  */
-buf_t rxbuf, txbuf; //一个buf足够单线程使用
+buf_t rxbuf, txbuf; // 一个buf足够单线程使用
 
 /**
  * @brief 初始化协议栈
