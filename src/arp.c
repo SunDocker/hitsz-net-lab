@@ -79,6 +79,16 @@ void arp_req(uint8_t *target_ip)
 void arp_resp(uint8_t *target_ip, uint8_t *target_mac)
 {
     // TO-DO
+    buf_init(&txbuf, sizeof(arp_pkt_t));
+
+    arp_pkt_t *arp_pkt = (arp_pkt_t *)txbuf.data;
+
+    memcpy(arp_pkt, &arp_init_pkt, sizeof(arp_pkt_t));
+    arp_pkt->opcode16 = constswap16(ARP_REPLY);
+    memcpy(arp_pkt->target_ip, target_ip, NET_IP_LEN);
+    memcpy(arp_pkt->target_mac, target_mac, NET_MAC_LEN);
+
+    ethernet_out(&txbuf, target_mac, NET_PROTOCOL_ARP);
 }
 
 /**
@@ -90,6 +100,35 @@ void arp_resp(uint8_t *target_ip, uint8_t *target_mac)
 void arp_in(buf_t *buf, uint8_t *src_mac)
 {
     // TO-DO
+    if (buf->len < sizeof(arp_pkt_t))
+    {
+        return;
+    }
+
+    // check hw_type16, pro_type16, hw_len, pro_len
+    arp_pkt_t *arp_pkt = (arp_pkt_t *)buf->data;
+    if (memcmp(arp_pkt, &arp_init_pkt, 6))
+    {
+        return;
+    }
+    // check opcode16
+    if (arp_pkt->opcode16 != constswap16(ARP_REPLY) && arp_pkt->opcode16 != constswap16(ARP_REQUEST))
+    {
+        return;
+    }
+
+    map_set(&arp_table, arp_pkt->sender_ip, arp_pkt->sender_mac);
+
+    buf_t *waiting_buf = map_get(&arp_buf, arp_pkt->sender_ip);
+    if (waiting_buf)
+    {
+        ethernet_out(waiting_buf, arp_pkt->sender_mac, NET_PROTOCOL_IP);
+        map_delete(&arp_buf, arp_pkt->sender_ip);
+    }
+    else if (arp_pkt->opcode16 == constswap16(ARP_REQUEST) && !memcmp(arp_pkt->target_ip, net_if_ip, NET_IP_LEN))
+    {
+        arp_resp(arp_pkt->sender_ip, arp_pkt->sender_mac);
+    }
 }
 
 /**
@@ -97,12 +136,27 @@ void arp_in(buf_t *buf, uint8_t *src_mac)
  *
  * @param buf 要处理的数据包
  * @param ip 目标ip地址
- * @param protocol 上层协议
+ * @param protocol 上层协议（= NET_PROTOCOL_IP）
  */
 void arp_out(buf_t *buf, uint8_t *ip)
 {
     // TO-DO
-     
+    uint8_t *mac = map_get(&arp_table, ip);
+    if (mac)
+    {
+        ethernet_out(buf, mac, NET_PROTOCOL_IP);
+        return;
+    }
+
+    buf_t *waiting_buf = map_get(&arp_buf, ip);
+    if (waiting_buf)
+    {
+        // TODO 丢包
+        return;
+    }
+
+    map_set(&arp_buf, ip, buf);
+    arp_req(ip);
 }
 
 /**
