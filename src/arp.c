@@ -80,7 +80,6 @@ void arp_resp(uint8_t *target_ip, uint8_t *target_mac)
 {
     // TO-DO
     buf_init(&txbuf, sizeof(arp_pkt_t));
-
     arp_pkt_t *arp_pkt = (arp_pkt_t *)txbuf.data;
 
     memcpy(arp_pkt, &arp_init_pkt, sizeof(arp_pkt_t));
