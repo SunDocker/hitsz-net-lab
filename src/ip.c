@@ -72,6 +72,30 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
 void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, uint16_t offset, int mf)
 {
     // TO-DO
+    buf_add_header(buf, sizeof(ip_hdr_t));
+    ip_hdr_t *ip_hdr = (ip_hdr_t *)buf->data;
+
+    ip_hdr->hdr_len = sizeof(ip_hdr_t) / IP_HDR_LEN_PER_BYTE;
+    ip_hdr->version = IP_VERSION_4;
+    ip_hdr->tos = 0;
+    ip_hdr->total_len16 = swap16(buf->len);
+    ip_hdr->id16 = swap16(id);
+    uint16_t temp_flags_fragment16 = 0;
+    temp_flags_fragment16 = offset / IP_HDR_OFFSET_PER_BYTE;
+    if (mf)
+    {
+        temp_flags_fragment16 |= IP_MORE_FRAGMENT;
+    }
+    ip_hdr->flags_fragment16 = temp_flags_fragment16;
+    ip_hdr->ttl = IP_DEFALUT_TTL;
+    ip_hdr->protocol = protocol;
+    ip_hdr->hdr_checksum16 = 0;
+    memcpy(ip_hdr->src_ip, net_if_ip, NET_IP_LEN);
+    memcpy(ip_hdr->dst_ip, ip, NET_IP_LEN);
+
+    ip_hdr->hdr_checksum16 = checksum16(buf->data, sizeof(ip_hdr_t));
+
+    arp_out(buf, ip);
 }
 
 /**
