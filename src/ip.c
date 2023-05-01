@@ -108,13 +108,15 @@ void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, u
 void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
 {
     // TO-DO
+    static int identifier = 0;
+
     uint16_t max_payload_len = ETHERNET_MAX_TRANSPORT_UNIT - sizeof(ip_hdr_t);
     uint16_t remained_payload_len = buf->len;
 
     if (remained_payload_len <= max_payload_len)
     {
         // TODO id?
-        ip_fragment_out(buf, ip, protocol, 0, 0, 0);
+        ip_fragment_out(buf, ip, protocol, identifier, 0, 0);
         return;
     }
 
@@ -126,13 +128,15 @@ void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
         buf_init(&ip_buf, max_payload_len);
         memcpy(&ip_buf, buf + idx * max_payload_len, max_payload_len);
         // TODO id?
-        ip_fragment_out(&ip_buf, ip, protocol, 0, idx * max_payload_len, 1);
+        ip_fragment_out(&ip_buf, ip, protocol, identifier, idx * max_payload_len, 1);
     }
     buf_t ip_buf;
     buf_init(&ip_buf, remained_payload_len);
     memcpy(&ip_buf, buf + idx * max_payload_len, remained_payload_len);
     // TODO id?
-    ip_fragment_out(&ip_buf, ip, protocol, 0, idx * max_payload_len, 0);
+    ip_fragment_out(&ip_buf, ip, protocol, identifier, idx * max_payload_len, 0);
+
+    identifier++;
 }
 
 /**
