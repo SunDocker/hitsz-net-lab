@@ -50,8 +50,7 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
 
     if (ip_hdr->protocol != NET_PROTOCOL_UDP)
     {
-        // TODO unreachable
-        // icmp_unreachable();
+        icmp_unreachable(buf, ip_hdr->src_ip, ICMP_CODE_PROTOCOL_UNREACH);
         return;
     }
 
