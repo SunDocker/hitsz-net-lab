@@ -6,18 +6,62 @@
 
 /**
  * @brief 处理一个收到的数据包
- * 
+ *
  * @param buf 要处理的数据包
  * @param src_mac 源mac地址
  */
 void ip_in(buf_t *buf, uint8_t *src_mac)
 {
-    // TO-DO 1
+    // TO-DO
+    // header length: hdr_len or sizeof(ip_hdr_t) ?
+    if (buf->len < sizeof(ip_hdr_t))
+    {
+        return;
+    }
+    ip_hdr_t *ip_hdr = (ip_hdr_t *)buf->data;
+    if (ip_hdr->version != IP_VERSION_4)
+    {
+        return;
+    }
+    if (swap16(ip_hdr->total_len16) > buf->len)
+    {
+        return;
+    }
+
+    uint16_t checksum16_temp = ip_hdr->hdr_checksum16;
+    ip_hdr->hdr_checksum16 = 0;
+    if (checksum16(ip_hdr, sizeof(ip_hdr_t)) != checksum16_temp)
+    {
+        return;
+    }
+    ip_hdr->hdr_checksum16 = checksum16_temp;
+
+    if (memcmp(net_if_ip, ip_hdr->dst_ip, NET_IP_LEN))
+    {
+        return;
+    }
+
+    if (buf->len > swap16(ip_hdr->total_len16))
+    {
+        buf_remove_padding(buf->len, buf->len - swap16(ip_hdr->total_len16));
+    }
+
+    buf_remove_header(buf, sizeof(ip_hdr_t));
+
+    if (ip_hdr->protocol != NET_PROTOCOL_UDP)
+    {
+        // TODO unreachable
+        // icmp_unreachable();
+        return;
+    }
+
+    // TODO IP or MAC
+    net_in(buf, ip_hdr->protocol, ip_hdr->src_ip);
 }
 
 /**
  * @brief 处理一个要发送的ip分片
- * 
+ *
  * @param buf 要发送的分片
  * @param ip 目标ip地址
  * @param protocol 上层协议
@@ -32,7 +76,7 @@ void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, u
 
 /**
  * @brief 处理一个要发送的ip数据包
- * 
+ *
  * @param buf 要处理的包
  * @param ip 目标ip地址
  * @param protocol 上层协议
@@ -40,11 +84,36 @@ void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, u
 void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
 {
     // TO-DO
+    uint16_t max_payload_len = ETHERNET_MAX_TRANSPORT_UNIT - sizeof(ip_hdr_t);
+    uint16_t remained_payload_len = buf->len;
+
+    if (remained_payload_len <= max_payload_len)
+    {
+        // TODO id?
+        ip_fragment_out(buf, ip, protocol, 0, 0, 0);
+        return;
+    }
+
+    int idx;
+    for (idx = 0; remained_payload_len > max_payload_len; idx++,
+        remained_payload_len -= max_payload_len)
+    {
+        buf_t ip_buf;
+        buf_init(&ip_buf, max_payload_len);
+        memcpy(&ip_buf, buf + idx * max_payload_len, max_payload_len);
+        // TODO id?
+        ip_fragment_out(&ip_buf, ip, protocol, 0, idx * max_payload_len, 1);
+    }
+    buf_t ip_buf;
+    buf_init(&ip_buf, remained_payload_len);
+    memcpy(&ip_buf, buf + idx * max_payload_len, remained_payload_len);
+    // TODO id?
+    ip_fragment_out(&ip_buf, ip, protocol, 0, idx * max_payload_len, 0);
 }
 
 /**
  * @brief 初始化ip协议
- * 
+ *
  */
 void ip_init()
 {

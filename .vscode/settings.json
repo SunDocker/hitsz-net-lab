@@ -2,6 +2,7 @@
     "files.associations": {
         "map.h": "c",
         "arp.h": "c",
-        "buf.h": "c"
+        "buf.h": "c",
+        "tcp.h": "c"
     }
 }
