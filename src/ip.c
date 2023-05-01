@@ -125,13 +125,13 @@ void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
     {
         buf_t ip_buf;
         buf_init(&ip_buf, max_payload_len);
-        memcpy(&ip_buf, buf + idx * max_payload_len, max_payload_len);
+        memcpy(ip_buf.data, buf + idx * max_payload_len, max_payload_len);
         // TODO id?
         ip_fragment_out(&ip_buf, ip, protocol, identifier, idx * max_payload_len, 1);
     }
     buf_t ip_buf;
     buf_init(&ip_buf, remained_payload_len);
-    memcpy(&ip_buf, buf + idx * max_payload_len, remained_payload_len);
+    memcpy(ip_buf.data, buf + idx * max_payload_len, remained_payload_len);
     // TODO id?
     ip_fragment_out(&ip_buf, ip, protocol, identifier, idx * max_payload_len, 0);
 

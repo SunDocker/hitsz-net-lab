@@ -36,7 +36,7 @@ static uint16_t udp_checksum(buf_t *buf, uint8_t *src_ip, uint8_t *dst_ip)
         buf_add_padding(buf, 1);
         padding_flag = 1;
     }
-    uint16_t udp_cksm = checksum16(buf, buf->len);
+    uint16_t udp_cksm = checksum16(buf->data, buf->len);
 
     memcpy(udp_peso_hdr, &temp_ip_hdr, sizeof(udp_peso_hdr_t));
     buf_remove_header(buf, sizeof(udp_peso_hdr_t));
@@ -46,7 +46,6 @@ static uint16_t udp_checksum(buf_t *buf, uint8_t *src_ip, uint8_t *dst_ip)
     }
 
     return udp_cksm;
-
 }
 
 /**
@@ -70,7 +69,7 @@ void udp_in(buf_t *buf, uint8_t *src_ip)
 
     uint16_t temp_checksum = udp_hdr->checksum16;
     udp_hdr->checksum16 = 0;
-    if (temp_checksum != udp_checksum(buf, src_ip, net_if_ip))
+    if (temp_checksum != udp_checksum(buf->data, src_ip, net_if_ip))
     {
         return;
     }
@@ -79,7 +78,7 @@ void udp_in(buf_t *buf, uint8_t *src_ip)
     if (udp_handler)
     {
         buf_remove_header(buf, sizeof(udp_hdr_t));
-        udp_handler(buf, buf->len, src_ip, swap16(udp_hdr->src_port16));
+        udp_handler(buf->data, buf->len, src_ip, swap16(udp_hdr->src_port16));
     }
     else
     {
@@ -106,7 +105,7 @@ void udp_out(buf_t *buf, uint16_t src_port, uint8_t *dst_ip, uint16_t dst_port)
     udp_hdr->total_len16 = swap16(buf->len);
     udp_hdr->checksum16 = 0;
 
-    udp_hdr->checksum16 = udp_checksum(buf, net_if_ip, dst_ip);
+    udp_hdr->checksum16 = udp_checksum(buf->data, net_if_ip, dst_ip);
 
     ip_out(buf, dst_ip, NET_PROTOCOL_UDP);
 }
