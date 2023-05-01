@@ -19,6 +19,34 @@ map_t udp_table;
 static uint16_t udp_checksum(buf_t *buf, uint8_t *src_ip, uint8_t *dst_ip)
 {
     // TO-DO
+    buf_add_header(buf, sizeof(udp_peso_hdr_t));
+    udp_peso_hdr_t *udp_peso_hdr = (udp_peso_hdr_t *)buf->data;
+    udp_peso_hdr_t temp_ip_hdr;
+    memcpy(&temp_ip_hdr, udp_peso_hdr, sizeof(udp_peso_hdr_t));
+
+    memcpy(udp_peso_hdr->src_ip, src_ip, NET_IP_LEN);
+    memcpy(udp_peso_hdr->dst_ip, dst_ip, NET_IP_LEN);
+    udp_peso_hdr->placeholder = 0;
+    udp_peso_hdr->protocol = NET_PROTOCOL_UDP;
+    udp_peso_hdr->total_len16 = swap16(buf->len - sizeof(udp_peso_hdr_t));
+
+    int padding_flag = 0;
+    if (buf->len % 2)
+    {
+        buf_add_padding(buf, 1);
+        padding_flag = 1;
+    }
+    uint16_t udp_cksm = checksum16(buf, buf->len);
+
+    memcpy(udp_peso_hdr, &temp_ip_hdr, sizeof(udp_peso_hdr_t));
+    buf_remove_header(buf, sizeof(udp_peso_hdr_t));
+    if (padding_flag)
+    {
+        buf_remove_padding(buf, 1);
+    }
+
+    return udp_cksm;
+
 }
 
 /**
@@ -30,6 +58,34 @@ static uint16_t udp_checksum(buf_t *buf, uint8_t *src_ip, uint8_t *dst_ip)
 void udp_in(buf_t *buf, uint8_t *src_ip)
 {
     // TO-DO
+    if (buf->len < sizeof(udp_hdr_t))
+    {
+        return;
+    }
+    udp_hdr_t *udp_hdr = (udp_hdr_t *)buf->data;
+    if (buf->len < swap16(udp_hdr->total_len16))
+    {
+        return;
+    }
+
+    uint16_t temp_checksum = udp_hdr->checksum16;
+    udp_hdr->checksum16 = 0;
+    if (temp_checksum != udp_checksum(buf, src_ip, net_if_ip))
+    {
+        return;
+    }
+
+    udp_handler_t udp_handler = map_get(&udp_table, swap16(udp_hdr->dst_port16));
+    if (udp_handler)
+    {
+        buf_remove_header(buf, sizeof(udp_hdr_t));
+        udp_handler(buf, buf->len, src_ip, swap16(udp_hdr->src_port16));
+    }
+    else
+    {
+        // buf_add_header(buf, sizeof(ip_hdr_t));
+        icmp_unreachable(buf, src_ip, ICMP_CODE_PORT_UNREACH);
+    }
 }
 
 /**
