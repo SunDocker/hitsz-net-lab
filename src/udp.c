@@ -75,11 +75,11 @@ void udp_in(buf_t *buf, uint8_t *src_ip)
     }
 
     uint16_t temp_dst_port16 = swap16(udp_hdr->dst_port16);
-    udp_handler_t udp_handler = map_get(&udp_table, &temp_dst_port16);
+    udp_handler_t* udp_handler = map_get(&udp_table, &temp_dst_port16);
     if (udp_handler)
     {
         buf_remove_header(buf, sizeof(udp_hdr_t));
-        udp_handler(buf->data, buf->len, src_ip, swap16(udp_hdr->src_port16));
+        (*udp_handler)(buf->data, buf->len, src_ip, swap16(udp_hdr->src_port16));
     }
     else
     {
