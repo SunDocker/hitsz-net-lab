@@ -46,13 +46,13 @@ void ip_in(buf_t *buf, uint8_t *src_mac)
         buf_remove_padding(buf, buf->len - swap16(ip_hdr->total_len16));
     }
 
-    buf_remove_header(buf, sizeof(ip_hdr_t));
-
     if (ip_hdr->protocol != NET_PROTOCOL_UDP && ip_hdr->protocol != NET_PROTOCOL_ICMP)
     {
         icmp_unreachable(buf, ip_hdr->src_ip, ICMP_CODE_PROTOCOL_UNREACH);
         return;
     }
+
+    buf_remove_header(buf, sizeof(ip_hdr_t));
 
     // TODO IP or MAC
     net_in(buf, ip_hdr->protocol, ip_hdr->src_ip);
@@ -85,7 +85,7 @@ void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, u
     {
         temp_flags_fragment16 |= IP_MORE_FRAGMENT;
     }
-    ip_hdr->flags_fragment16 = temp_flags_fragment16;
+    ip_hdr->flags_fragment16 = swap16(temp_flags_fragment16);
     ip_hdr->ttl = IP_DEFALUT_TTL;
     ip_hdr->protocol = protocol;
     ip_hdr->hdr_checksum16 = 0;
@@ -107,7 +107,8 @@ void ip_fragment_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol, int id, u
 void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
 {
     // TO-DO
-    static int identifier = 0;
+    static int identifier = -1;
+    identifier++;
 
     uint16_t max_payload_len = ETHERNET_MAX_TRANSPORT_UNIT - sizeof(ip_hdr_t);
     uint16_t remained_payload_len = buf->len;
@@ -125,17 +126,15 @@ void ip_out(buf_t *buf, uint8_t *ip, net_protocol_t protocol)
     {
         buf_t ip_buf;
         buf_init(&ip_buf, max_payload_len);
-        memcpy(ip_buf.data, buf + idx * max_payload_len, max_payload_len);
+        memcpy(ip_buf.data, buf->data + idx * max_payload_len, max_payload_len);
         // TODO id?
         ip_fragment_out(&ip_buf, ip, protocol, identifier, idx * max_payload_len, 1);
     }
     buf_t ip_buf;
     buf_init(&ip_buf, remained_payload_len);
-    memcpy(ip_buf.data, buf + idx * max_payload_len, remained_payload_len);
+    memcpy(ip_buf.data, buf->data + idx * max_payload_len, remained_payload_len);
     // TODO id?
     ip_fragment_out(&ip_buf, ip, protocol, identifier, idx * max_payload_len, 0);
-
-    identifier++;
 }
 
 /**
